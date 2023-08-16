@@ -54,12 +54,12 @@ export function createData(paths: any) {
             items: {
                 "slide#current_slide_text": {
                     enabled: true,
-                    style: "width:1870px;height:680px;left:25px;top:25px;font-weight:bold;",
+                    style: "width:1870px;height:680px;left:25px;top:25px;font-family: Arial;font-weight:bold;",
                     align: "",
                 },
                 "slide#next_slide_text": {
                     enabled: true,
-                    style: "width:1870px;height:330px;left:25px;top:725px;color:#aaaaaa;font-weight:bold;",
+                    style: "width:1870px;height:330px;left:25px;top:725px;font-family: Arial;font-weight:bold;color:#aaaaaa;",
                     align: "",
                 },
             },
@@ -132,6 +132,32 @@ export function setExampleOverlays() {
             color: "dodgerblue",
             category: "visuals",
             items: [{ style: "top:0px;left:1450px;height:170px;width:470px;", type: "clock", clock: { type: "digital", seconds: false } }],
+        }
+        a.name = {
+            name: get(dictionary).inputs?.name || "Name",
+            color: "#5825F5",
+            category: "visuals",
+            items: [
+                { style: "top:875px;left:80px;height:135px;width:750px;background-color: #b10dc9;box-shadow: 2px 2px 10px 0px rgb(0 0 0 / 0.8);" },
+                { style: "top:875px;left:80px;height:135px;width:50px;background-color: #7fdbff;" },
+                {
+                    style: "top:935px;left:130px;height:75px;width:700px;background-color: #b10dc9;padding: 0 10px;",
+                    actions: {
+                        showTimer: 1,
+                        transition: { type: "slide", duration: 500, easing: "cubic" },
+                    },
+                    type: "text",
+                    lines: [{ align: "text-align: left", text: [{ value: "Name Surname", style: "font-family: Arial;font-size: 70px;text-shadow: 0 0 #000000;" }] }],
+                },
+                {
+                    style: "top:875px;left:130px;height:60px;width:700px;background-color: #0074d9;padding: 0 10px;",
+                    actions: {
+                        transition: { type: "slide", duration: 500, easing: "cubic" },
+                    },
+                    type: "text",
+                    lines: [{ align: "text-align: left", text: [{ value: "Title", style: "font-family: Arial;font-size: 40px;font-weight: bold;text-transform:uppercase;text-shadow: 0 0 #000000;" }] }],
+                },
+            ],
         }
         a.rounded = {
             name: get(dictionary).example?.rounded || "Rounded",
@@ -328,6 +354,30 @@ export function setExampleTemplates() {
                         { align: "", text: [{ value: "2", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;text-shadow: 0 0 #000000;" }] },
                         { align: "", text: [{ value: "3", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;text-shadow: 0 0 #000000;" }] },
                         { align: "", text: [{ value: "4", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;text-shadow: 0 0 #000000;" }] },
+                    ],
+                },
+            ],
+        }
+        a.faded = {
+            name: "Faded",
+            color: null,
+            category: "song",
+            items: [
+                {
+                    style: "top:0px;left:0px;height:1080px;width:1920px;background-color: rgb(0 0 0 / 0.5);backdrop-filter: blur(10px);",
+                    align: "",
+                    actions: { transition: { type: "none", duration: 0, easing: "linear" } },
+                    lines: [],
+                },
+                {
+                    style: "top:310px;left:0px;height:460px;width:1920px;",
+                    align: "",
+                    actions: { transition: { type: "fade", duration: 500, easing: "sine" } },
+                    lines: [
+                        { align: "", text: [{ value: "1", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;" }] },
+                        { align: "", text: [{ value: "2", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;" }] },
+                        { align: "", text: [{ value: "3", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;" }] },
+                        { align: "", text: [{ value: "4", style: "font-size: 90px;line-height:1.2em;letter-spacing:2px;" }] },
                     ],
                 },
             ],

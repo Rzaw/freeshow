@@ -3,7 +3,7 @@ import { uid } from "uid"
 import type { Item, Layout, Slide, SlideData } from "../../types/Show"
 import { checkName, getGlobalGroup, initializeMetadata, newSlide } from "../components/helpers/show"
 import { ShowObj } from "./../classes/Show"
-import { activePopup, alertMessage, dictionary, groups } from "./../stores"
+import { activePopup, alertMessage, dictionary, groups, shows } from "./../stores"
 import { createCategory, setTempShows } from "./importHelpers"
 import { xml2json } from "./xml"
 import { getExtension, getFileName, getMediaType } from "../components/helpers/media"
@@ -36,7 +36,12 @@ export function convertProPresenter(data: any) {
 
             let layoutID = uid()
             let show = new ShowObj(false, "propresenter", layoutID)
-            show.name = checkName(song.name === "Untitled" ? name : song.name || name)
+            let showId = song["@uuid"] || song.uuid?.string || uid()
+            show.name = checkName(song.name === "Untitled" ? name : song.name || name, showId)
+
+            // propresenter often uses the same id for duplicated songs
+            let existingShow = get(shows)[showId] || tempShows.find((a) => a.id === showId)?.show
+            if (existingShow && existingShow.name !== (song.name || name)) showId = uid()
 
             let converted: any = {}
 
@@ -71,7 +76,7 @@ export function convertProPresenter(data: any) {
                 }
             })
 
-            tempShows.push({ id: song["@uuid"] || song.uuid?.string || uid(), show })
+            tempShows.push({ id: showId, show })
         })
 
         setTempShows(tempShows)
@@ -129,6 +134,8 @@ function convertToSlides(song: any, extension: string) {
     if (!Array.isArray(groups)) groups = [groups]
     let arrangements = song.arrangements || song.array?.[1]?.RVSongArrangement || []
 
+    // console.log(song)
+
     let slides: any = {}
     let layouts: any[] = [{ id: null, name: "", slides: [] }]
     let media: any = {}
@@ -144,9 +151,11 @@ function convertToSlides(song: any, extension: string) {
         if (!Array.isArray(groupSlides)) groupSlides = [groupSlides]
         if (!groupSlides?.length) return
 
-        groupSlides.forEach((slide, i) => {
+        let slideIndex: number = -1
+        groupSlides.forEach((slide) => {
             let items: Item[] = getSlideItems(slide)
-            if (!items) return
+            if (!items?.length) return
+            slideIndex++
 
             let slideIsDisabled = slide["@enabled"] === "false"
             let slideId: string = uid()
@@ -158,9 +167,9 @@ function convertToSlides(song: any, extension: string) {
 
             // TODO: images
             let path: string = media?.RVVideoElement?.["@source"] || ""
-            if (path) backgrounds[i] = { path, name: media["@displayName"] || "" }
+            if (path) backgrounds[slideIndex] = { path, name: media["@displayName"] || "" }
 
-            let isFirstSlide: boolean = i === 0
+            let isFirstSlide: boolean = slideIndex === 0
             if (isFirstSlide) {
                 slides[slideId] = makeParentSlide(slides[slideId], {
                     label: group["@name"] || slides[slideId]["@label"] || "",
@@ -207,6 +216,8 @@ function convertToSlides(song: any, extension: string) {
 }
 
 function getSlideItems(slide: any): any[] {
+    if (!slide) return []
+
     let elements: any = null
     if (slide.displayElements) elements = slide.displayElements
     else elements = slide.array.find((a) => a["@rvXMLIvarName"] === "displayElements")
@@ -218,15 +229,21 @@ function getSlideItems(slide: any): any[] {
 
     let items: any[] = []
 
+    let textElement = elements.RVTextElement
     let itemStrings = elements.RVTextElement.NSString
+    if (!itemStrings && Array.isArray(textElement)) itemStrings = textElement.map((a) => a.NSString)
     if (!itemStrings) itemStrings = [elements.RVTextElement["@RTFData"]]
     else if (itemStrings["#text"]) itemStrings = [itemStrings]
+
     itemStrings.forEach((content: any) => {
+        if (!content) return
         let text = decodeBase64(content["#text"] || content)
+        // console.log(text)
 
         if (content["@rvXMLIvarName"] && content["@rvXMLIvarName"] !== "RTFData") return
         // text = convertFromRTFToPlain(text)
         text = decodeHex(text)
+        // console.log(text)
 
         if (text === "Double-click to edit") text = ""
         items.push({ style: itemStyle, lines: splitTextToLines(text) })
@@ -268,7 +285,6 @@ function splitTextToLines(text: string) {
     let lines: any[] = []
     let data = text.split("\n\n")
     lines = data.map((text: any) => ({ align: "", text: [{ style: "", value: text }] }))
-    console.log(lines)
 
     return lines
 }
@@ -287,6 +303,11 @@ function decodeBase64(text: string) {
 
     // WIP convert ‘ & ’ to '
     r = r.replaceAll("\\u8217 ?", "'")
+    r = r.replaceAll("\\'92", "'")
+    r = r.replaceAll("\\'e6", "æ")
+    r = r.replaceAll("\\'f8", "ø")
+    r = r.replaceAll("\\'e5", "å")
+    r = r.replaceAll("\\'96", "–")
 
     return r
 }
@@ -307,21 +328,8 @@ function RTFToText(input: string) {
     return splitted.join("\n").trim()
 }
 
-// {\rtf1\ansi\ansicpg1252\cocoartf1561\cocoasubrtf610
-// {\fonttbl\f0\fnil\fcharset0 Avenir-Book;}
-// {\colortbl;\red255\green255\blue255;\red255\green255\blue255;}
-// {\*\expandedcolortbl;;\csgray\c100000;}
-// \deftab720
-// \pard\pardeftab720\slleading200\qc\partightenfactor0
-
-// \f0\fs120 \cf2 \kerning1\expnd12\expndtw60
-// Her er jeg Gud\
-// Med mine byrder\
-// Jeg kommer n\'e5\
-// Med mine s\'e5r}
-
 function decodeHex(input: string) {
-    let textStart = input.indexOf("\\cf2\\ltrch")
+    let textStart = input.indexOf("\\ltrch")
     // remove RTF before text
     if (textStart > -1) {
         input = input.slice(input.indexOf(" ", textStart), input.length)
@@ -390,13 +398,13 @@ function convertProToSlides(song: any) {
     let media: any = {}
     let layouts: any = []
 
-    console.log(song)
+    // console.log(song)
 
     let tempLayouts: any = {}
     const tempArrangements: any[] = getArrangements(song.arrangements)
     const tempGroups: any[] = getGroups(song.cueGroups)
     const tempSlides: any[] = getSlides(song.cues)
-    console.log(tempArrangements, tempGroups, tempSlides)
+    // console.log(tempArrangements, tempGroups, tempSlides)
 
     if (!tempArrangements?.length) {
         tempArrangements.push({ groups: Object.keys(tempGroups), name: "" })
@@ -555,9 +563,9 @@ function getItem(item: any) {
 
 function decodeRTF(text: string) {
     text = decodeBase64(text)
-    console.log(text)
+    // console.log(text)
     text = RTFToText(text)
-    console.log(text)
+    // console.log(text)
     return text
 }
 

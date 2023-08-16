@@ -3,12 +3,11 @@ import { uid } from "uid"
 import { OUTPUT } from "../../../types/Channels"
 import type { Output } from "../../../types/Output"
 import type { Resolution } from "../../../types/Settings"
-import { currentOutputSettings, lockedOverlays, outputDisplay, outputs, overlays, playingVideos, showsCache, styles, theme, themes, transitionData } from "../../stores"
-import { sendInitialOutputData } from "../../utils/messages"
-import { send } from "../../utils/request"
 import type { Transition } from "../../../types/Show"
-import { _show } from "./shows"
+import { currentOutputSettings, lockedOverlays, outputDisplay, outputs, overlays, playingVideos, showsCache, styles, theme, themes, transitionData } from "../../stores"
+import { send } from "../../utils/request"
 import { clone } from "./array"
+import { _show } from "./shows"
 
 export function displayOutputs(e: any = {}, auto: boolean = false) {
     let enabledOutputs: any[] = getActiveOutputs(get(outputs), false)
@@ -28,7 +27,7 @@ export function setOutput(key: string, data: any, toggle: boolean = false, outpu
         let outs = getActiveOutputs()
         if (outputId) outs = [outputId]
 
-        outs.forEach((id: string) => {
+        outs.forEach((id: string, i: number) => {
             let output: any = a[id]
             if (!output.out) a[id].out = {}
             if (!output.out?.[key]) a[id].out[key] = key === "overlays" ? [] : null
@@ -49,10 +48,16 @@ export function setOutput(key: string, data: any, toggle: boolean = false, outpu
             // WIP update bg (muted, loop, time)
             // WIP preview don't get set to 0, just output window
             if (key === "background" && data) {
-                let msg: any = { id, data: { muted: data.muted || false, loop: data.loop || false } }
+                // mute videos in the other output windows if more than one
+                let muted = data.muted || false
+                if (outs.length > 1 && i !== 0) muted = true
+
+                let msg: any = { id, data: { muted, loop: data.loop || false } }
                 if (data.startAt !== undefined) msg.time = data.startAt || 0
 
-                send(OUTPUT, ["UPDATE_VIDEO"], msg)
+                setTimeout(() => {
+                    send(OUTPUT, ["UPDATE_VIDEO"], msg)
+                }, 100)
             }
         })
 
@@ -137,10 +142,23 @@ export function isOutCleared(key: string | null = null, updater: any = get(outpu
     return cleared
 }
 
-export function getResolution(initial: Resolution | undefined | null = null, _updater: any = null): Resolution {
+// WIP style should override any slide resolution & color ? (it does not)
+
+export function getResolution(initial: Resolution | undefined | null = null, _updater: any = null, getSlideRes: boolean = false): Resolution {
     let currentOutput = get(outputs)[getActiveOutputs()[0]]
     let style = currentOutput?.style ? get(styles)[currentOutput?.style]?.resolution : null
-    return initial || style || { width: 1920, height: 1080 }
+    let slideRes: any = null
+
+    if (!initial && !style && getSlideRes) {
+        let outSlide: any = currentOutput?.out?.slide || {}
+        let slideRef = _show(outSlide.id || "")
+            .layouts([outSlide.layout])
+            .ref()[0]?.[outSlide.index]
+        let slideOutput = _show(outSlide.id || "").get("slides")?.[slideRef?.id] || null
+        slideRes = slideOutput?.settings?.resolution
+    }
+
+    return initial || style || slideRes || { width: 1920, height: 1080 }
 }
 
 // settings
@@ -173,10 +191,6 @@ export function keyOutput(keyId: string, delOutput: boolean = false) {
         send(OUTPUT, ["CREATE"], { id: keyId, ...currentOutput })
         if (get(outputDisplay)) send(OUTPUT, ["DISPLAY"], { enabled: true, output: { id: keyId, ...currentOutput } })
 
-        setTimeout(() => {
-            sendInitialOutputData()
-        }, 3000)
-
         return a
     })
 }
@@ -198,9 +212,6 @@ export function addOutput(onlyFirst: boolean = false) {
         // show
         if (!onlyFirst) send(OUTPUT, ["CREATE"], { id, ...output[id] })
         if (!onlyFirst && get(outputDisplay)) send(OUTPUT, ["DISPLAY"], { enabled: true, output: { id, ...output[id] } })
-        setTimeout(() => {
-            sendInitialOutputData()
-        }, 3000)
 
         currentOutputSettings.set(id)
         return output
@@ -211,13 +222,17 @@ export function deleteOutput(outputId: string) {
     if (Object.keys(get(outputs)).length <= 1) return
 
     outputs.update((a) => {
+        let keyOutput = a[outputId].isKeyOutput
+
+        send(OUTPUT, ["REMOVE"], { id: outputId })
         delete a[outputId]
-        currentOutputSettings.set(Object.keys(a)[0])
+
+        if (!keyOutput) currentOutputSettings.set(Object.keys(a)[0])
         return a
     })
 }
 
-export async function clearPlayingVideo(clearOutput: boolean = true) {
+export async function clearPlayingVideo(clearOutput: any = null) {
     // videoData.paused = true
     if (clearOutput) setOutput("background", null)
 
@@ -241,17 +256,15 @@ export async function clearPlayingVideo(clearOutput: boolean = true) {
             })
 
             //   let video = null
-            let videoTime = 0
             let videoData = {
                 time: 0,
                 duration: 0,
-                paused: clearOutput,
+                paused: !!clearOutput,
                 muted: false,
                 loop: false,
             }
 
-            window.api.send(OUTPUT, { channel: "UPDATE_VIDEO", data: videoData })
-            window.api.send(OUTPUT, { channel: "UPDATE_VIDEO_TIME", data: videoTime })
+            send(OUTPUT, ["UPDATE_VIDEO"], { id: clearOutput, data: videoData, time: 0 })
 
             resolve(videoData)
         }, duration)

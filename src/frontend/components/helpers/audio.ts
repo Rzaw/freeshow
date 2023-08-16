@@ -3,6 +3,7 @@ import { MAIN, OUTPUT } from "../../../types/Channels"
 import { audioChannels, gain, playingAudio, playingVideos, volume } from "../../stores"
 import { send } from "../../utils/request"
 import { audioAnalyser } from "../output/audioAnalyser"
+import { checkNextAfterMedia } from "./showActions"
 
 export async function playAudio({ path, name = "", audio = null, stream = null }: any, pauseIfPlaying: boolean = true, startAt: number = 0) {
     let existing: any = get(playingAudio)[path]
@@ -100,18 +101,20 @@ export function analyseAudio() {
             allAudio = Object.entries(get(playingAudio))
                 .map(([id, a]: any) => ({ id, ...a }))
                 .filter((audio) => {
+                    let audioPath = audio.id
                     // check if finished
                     if (!audio.paused && audio.audio.currentTime >= audio.audio.duration) {
-                        if (get(playingAudio)[audio.id].loop) {
-                            get(playingAudio)[audio.id].audio.currentTime = 0
-                            get(playingAudio)[audio.id].audio.play()
+                        if (get(playingAudio)[audioPath].loop) {
+                            get(playingAudio)[audioPath].audio.currentTime = 0
+                            get(playingAudio)[audioPath].audio.play()
                         } else {
                             playingAudio.update((a: any) => {
-                                // a[audio.id].paused = true
-                                // TODO: check audio nextAfterMedia
-                                delete a[audio.id]
+                                // a[audioPath].paused = true
+                                delete a[audioPath]
                                 return a
                             })
+
+                            if (!Object.keys(get(playingAudio)).length) checkNextAfterMedia(audioPath, "audio")
                             return false
                         }
                     }
@@ -250,7 +253,7 @@ export async function getAnalyser(elem: any, stream: any = null) {
     return { left: leftAnalyser, right: rightAnalyser, gainNode }
 }
 
-export async function getAudioDuration(path: string) {
+export async function getAudioDuration(path: string): Promise<number> {
     return new Promise((resolve) => {
         let audio: any = new Audio(path)
         audio.addEventListener("canplaythrough", (_: any) => {

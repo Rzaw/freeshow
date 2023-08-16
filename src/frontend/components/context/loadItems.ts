@@ -1,11 +1,11 @@
 import { get } from "svelte/store"
-import { drawerTabsData, groups, outputs, overlays, selected } from "../../stores"
+import { activeEdit, drawerTabsData, groups, outputs, overlays, selected, templates } from "../../stores"
 import { translate } from "../../utils/language"
 import { drawerTabs } from "../../values/tabs"
-import { keys } from "../edit/values/chords"
+import { chordAdders, keys } from "../edit/values/chords"
+import { keysToID } from "../helpers/array"
 import { _show } from "../helpers/shows"
 import type { ContextMenuItem } from "./contextMenus"
-import { keysToID } from "../helpers/array"
 
 export function loadItems(id: string): [string, ContextMenuItem][] {
     let items: [string, ContextMenuItem][] = []
@@ -34,10 +34,11 @@ export function loadItems(id: string): [string, ContextMenuItem][] {
         case "actions":
             let slideRef: any = _show().layouts("active").ref()[0][get(selected).data[0]?.index]
             let currentActions: any = slideRef?.data?.actions
-            console.log(slideRef)
+
             let actions: any = [
                 { id: "nextTimer", label: "preview.nextTimer", icon: "clock", enabled: Number(slideRef?.data?.nextTimer || 0) || false },
                 { id: "loop", label: "preview.to_start", icon: "restart", enabled: slideRef?.data?.end || false },
+                { id: "animate", label: "popup.animate", icon: "stars", enabled: currentActions?.animate || false },
                 { id: "startShow", label: "preview._start", icon: "showIcon", enabled: currentActions?.startShow || false },
                 { id: "nextAfterMedia", label: "actions.next_after_media", icon: "forward", enabled: currentActions?.nextAfterMedia || false },
                 { id: "startTimer", label: "actions.start_timer", icon: "timer", enabled: currentActions?.startTimer || false },
@@ -52,6 +53,27 @@ export function loadItems(id: string): [string, ContextMenuItem][] {
                 { id: "clearAudio", label: "clear.audio", icon: "audio", enabled: currentActions?.clearAudio || false },
             ]
             items = [...items, ...actions.map((a) => [id, a]), ["SEPERATOR"], ...clearActions.map((a) => [id, a])]
+            break
+        case "item_actions":
+            let editSlideRef: any = _show().layouts("active").ref()[0]?.[get(activeEdit).slide ?? ""] || {}
+            let slide = _show().get("slides")?.[editSlideRef.id]
+
+            if (get(activeEdit).id) {
+                if (get(activeEdit).type === "overlay") slide = get(overlays)[get(activeEdit).id!]
+                else if (get(activeEdit).type === "template") slide = get(templates)[get(activeEdit).id!]
+            }
+            if (!slide) return []
+
+            let selectedItems: number[] = get(activeEdit).items
+            let currentItemActions: any = slide.items[selectedItems[0]].actions || {}
+
+            let itemActions: any = [
+                { id: "transition", label: "popup.transition", icon: "transition", enabled: !!currentItemActions.transition },
+                { id: "showTimer", label: "actions.show_timer", icon: "time_in", enabled: Number(currentItemActions.showTimer || 0) || false },
+                { id: "hideTimer", label: "actions.hide_timer", icon: "time_out", enabled: Number(currentItemActions.hideTimer || 0) || false },
+            ]
+
+            items = itemActions.map((a) => [id, a])
             break
         case "remove_layers":
             let data: any = _show().layouts("active").ref()[0][get(selected).data[0]?.index]?.data
@@ -116,12 +138,35 @@ export function loadItems(id: string): [string, ContextMenuItem][] {
         case "keys":
             items = keys.map((key) => [id, { id: key, label: key, translate: false }])
             break
-        case "outputs":
+        case "chord_list":
+            keys.forEach((key) => {
+                chordAdders.forEach((adder) => {
+                    items.push([id, { id: key + adder, label: key + adder, translate: false }])
+                })
+            })
+            break
+        case "output_list":
             let outputList: any[] = keysToID(get(outputs))
                 .filter((a) => !a.isKeyOutput)
                 .sort((a, b) => a.name.localeCompare(b.name))
 
             outputList = outputList.map((a) => ["bind_item", { id: a.id, label: a.name, translate: false }])
+            outputList = [["bind_item", { id: "stage", label: "menu.stage" }], ...outputList]
+
+            // get current item bindings
+            // TODO: global function to get item from all different slide types
+            let editSlideRef2: any = _show().layouts("active").ref()[0]?.[get(activeEdit).slide ?? ""] || {}
+            let slide2 = _show().get("slides")?.[editSlideRef2.id]
+            if (get(activeEdit).id) {
+                if (get(activeEdit).type === "overlay") slide2 = get(overlays)[get(activeEdit).id!]
+                else if (get(activeEdit).type === "template") slide2 = get(templates)[get(activeEdit).id!]
+            }
+            let selectedItem: number = get(activeEdit).items[0]
+            let currentItemBindings: any = slide2 ? slide2.items?.[selectedItem]?.bindings || [] : []
+            outputList = outputList.map((a) => {
+                if (currentItemBindings.includes(a[1].id)) a[1].enabled = true
+                return a
+            })
 
             items.push(...outputList)
             break

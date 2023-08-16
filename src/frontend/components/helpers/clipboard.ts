@@ -36,6 +36,7 @@ import {
     templateCategories,
     templates,
     themes,
+    variables,
     videoMarkers,
 } from "../../stores"
 import { newToast } from "../../utils/messages"
@@ -605,6 +606,15 @@ const deleteActions = {
         })
     },
     global_timer: (data: any) => deleteActions.timer(data),
+    variable: (data: any) => {
+        variables.update((a) => {
+            data.forEach(({ id }) => {
+                delete a[id]
+            })
+
+            return a
+        })
+    },
     folder: (data: any) => historyDelete("UPDATE", data, { updater: "project_folder" }),
     project: (data: any) => historyDelete("UPDATE", data, { updater: "project" }),
     stage: (data: any) => historyDelete("UPDATE", data, { updater: "stage" }),
@@ -727,6 +737,21 @@ const deleteActions = {
         })
 
         currentOutputSettings.set(Object.keys(get(outputs))[0])
+    },
+    chord: (data: any) => {
+        console.log(data)
+        data = data[0]
+
+        let item: any = _show().slides([data.slideId]).items([data.itemIndex]).get()[0][0]
+
+        let newLines: any = clone(item.lines)
+        let currentChordIndex = newLines[data.index].chords.findIndex((a) => a.id === data.chord.id)
+        newLines[data.index].chords.splice(currentChordIndex, 1)
+
+        _show()
+            .slides([data.slideId])
+            .items([data.itemIndex])
+            .set({ key: "lines", values: [newLines] })
     },
 }
 

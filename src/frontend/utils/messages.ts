@@ -1,5 +1,5 @@
 import { get } from "svelte/store"
-import { CLOUD, CONTROLLER, OPEN_FILE, OUTPUT, REMOTE, STAGE } from "../../types/Channels"
+import { CLOUD, CONTROLLER, OPEN_FILE, OUTPUT_STREAM, REMOTE, STAGE } from "../../types/Channels"
 import type { SaveList } from "../../types/Save"
 import type { ClientMessage } from "../../types/Socket"
 import {
@@ -11,6 +11,7 @@ import {
     categories,
     customizedIcons,
     defaultProjectName,
+    disabledServers,
     drawSettings,
     driveData,
     driveKeys,
@@ -39,6 +40,7 @@ import {
     remotePassword,
     saved,
     scripturePath,
+    serverData,
     showsCache,
     showsPath,
     slidesOptions,
@@ -51,22 +53,25 @@ import {
     timeFormat,
     timers,
     toastMessages,
+    variables,
     videoExtensions,
     videoMarkers,
     webFavorites,
 } from "../stores"
-import { alertUpdates, autoOutput, maxConnections, ports, scriptureSettings, scriptures, splitLines, transitionData, volume } from "./../stores"
+import { alertUpdates, autoOutput, maxConnections, ports, scriptureSettings, scriptures, splitLines, transitionData } from "./../stores"
 import { syncDrive, validateKeys } from "./drive"
 import { send } from "./request"
+import { closeApp } from "./save"
 import { client } from "./sendData"
 import { stageListen } from "./stageTalk"
-import { closeApp } from "./save"
+import { loadShows } from "../components/helpers/setShow"
 
 export function listen() {
     // FROM CLIENT (EXPRESS SERVERS)
     window.api.receive(REMOTE, (msg: ClientMessage) => client(REMOTE, msg))
     window.api.receive(STAGE, (msg: ClientMessage) => client(STAGE, msg))
     window.api.receive(CONTROLLER, (msg: ClientMessage) => client(CONTROLLER, msg))
+    window.api.receive(OUTPUT_STREAM, (msg: ClientMessage) => client(OUTPUT_STREAM, msg))
 
     window.api.receive(OPEN_FILE, (msg: ClientMessage) => {
         if (fileSelected[msg.channel]) fileSelected[msg.channel](msg.data)
@@ -79,11 +84,13 @@ export function listen() {
     // TO STAGE
     stageListen()
 
-    // think this is just needed for the dev server to update
-    setTimeout(sendInitialOutputData, 1000)
+    // load new show on show change
+    activeShow.subscribe((a) => {
+        if (a && (a.type === undefined || a.type === "show")) loadShows([a.id])
+    })
 
     // SAVE
-    // TODO: better saving!
+    // TODO: better saved check!
     let s = { ...saveList, folders: folders, overlays: overlays, projects: projects, showsCache: showsCache, stageShows: stageShows }
     setTimeout(() => {
         Object.values(s).forEach((a) => {
@@ -91,18 +98,6 @@ export function listen() {
         })
         saved.set(true)
     }, 5000)
-}
-
-export function sendInitialOutputData() {
-    send(OUTPUT, ["SHOWS"], get(showsCache))
-    send(OUTPUT, ["TRANSITION"], get(transitionData))
-    send(OUTPUT, ["MEDIA"], get(mediaFolders))
-    send(OUTPUT, ["PLAYER_VIDEOS"], get(playerVideos))
-    send(OUTPUT, ["VOLUME"], get(volume))
-    send(OUTPUT, ["TEMPLATES"], get(templates))
-    send(OUTPUT, ["OVERLAYS"], get(overlays))
-    send(OUTPUT, ["TIMERS"], get(timers))
-    send(OUTPUT, ["EVENTS"], get(events))
 }
 
 export function newToast(msg: string) {
@@ -125,6 +120,8 @@ const cloudHelpers = {
             return
         }
         if (status !== "connected") return
+
+        // WIP set connected status, and see in settings
 
         if (get(driveData)?.mainFolderId) {
             driveData.update((a) => {
@@ -150,7 +147,9 @@ const cloudHelpers = {
             return a
         })
 
-        if (!get(driveData).initializeMethod) {
+        let method = get(driveData).initializeMethod
+        if (get(driveData).disableUpload) method = "download"
+        if (!method) {
             if (existingData) {
                 activePopup.set("cloud_method")
                 return
@@ -209,6 +208,8 @@ const saveList: { [key in SaveList]: any } = {
     timeFormat: timeFormat,
     maxConnections: maxConnections,
     ports: ports,
+    disabledServers: disabledServers,
+    serverData: serverData,
     defaultProjectName: defaultProjectName,
     events: events,
     showsPath: showsPath,
@@ -245,6 +246,7 @@ const saveList: { [key in SaveList]: any } = {
     templateCategories: templateCategories,
     templates: templates,
     timers: timers,
+    variables: variables,
     theme: theme,
     themes: themes,
     transitionData: transitionData,

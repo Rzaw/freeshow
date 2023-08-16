@@ -2,7 +2,7 @@ import { get } from "svelte/store"
 import { uid } from "uid"
 import type { ItemType, Slide } from "../../../types/Show"
 import { removeItemValues } from "../../show/slides"
-import { activeEdit, activePopup, activeShow, alertMessage, cachedShowsData, deletedShows, renamedShows, shows, showsCache, templates } from "../../stores"
+import { activeEdit, activePage, activePopup, activeShow, alertMessage, cachedShowsData, deletedShows, driveData, refreshEditSlide, renamedShows, shows, showsCache, templates } from "../../stores"
 import { save } from "../../utils/save"
 import { clone, keysToID } from "./array"
 import { EMPTY_SHOW_SLIDE } from "./empty"
@@ -247,7 +247,7 @@ export const historyActions = ({ obj, undo = null }: any) => {
                     if (!name) return
 
                     let number = 1
-                    while (showsList.find((a: any, index: number) => a.show.name === (number > 1 ? name + " " + number : name) && index !== i)) number++
+                    while (showsList.find((a: any, index: number) => a.show?.name === (number > 1 ? name + " " + number : name) && index !== i)) number++
                     name = number > 1 ? name + " " + number : name
 
                     showsList[i].show.name = name
@@ -259,7 +259,7 @@ export const historyActions = ({ obj, undo = null }: any) => {
             let rename: any = {}
 
             // load shows cache
-            if (deleting) {
+            if (deleting && showsList.length < 20) {
                 await loadShows(showsList.map((a) => a.id))
             }
 
@@ -270,6 +270,8 @@ export const historyActions = ({ obj, undo = null }: any) => {
                             a[id] = show
                             return
                         }
+
+                        if (!a[id]) return
 
                         oldShows[id] = clone(a[id])
                         delete a[id]
@@ -302,6 +304,8 @@ export const historyActions = ({ obj, undo = null }: any) => {
                     if (deleting && !replace) {
                         // store show
                         if (!obj.oldData?.data[i]?.show) obj.oldData.data[i] = { id, show: oldShows[id] }
+
+                        if (!a[id]) return
 
                         // add to deleted so the file can be deleted on save
                         deletedShows.set([...get(deletedShows), { id, name: a[id].name }])
@@ -494,10 +498,15 @@ export const historyActions = ({ obj, undo = null }: any) => {
                     //     layoutValue.background = bgId
                     // }
 
-                    // backgrounds (not in use ?)
+                    // backgrounds
                     if (data.layout?.backgrounds?.length) {
                         let background = data.layout.backgrounds[i] || data.layout.backgrounds[0]
-                        let bgId = _show(showId).media().add(background)
+
+                        let id: string = ""
+                        let cloudId = get(driveData).mediaId
+                        if (layoutValue.background && cloudId && cloudId !== "default") id = layoutValue.background
+
+                        let bgId = _show(showId).media().add(background, id)
                         layoutValue.background = bgId
                     }
 
@@ -678,6 +687,8 @@ export const historyActions = ({ obj, undo = null }: any) => {
 
                 let template = clone(get(templates)[templateId])
                 updateSlidesWithTemplate(template)
+
+                if (get(activePage) === "edit") refreshEditSlide.set(true)
             }
 
             // update cached show
@@ -695,12 +706,15 @@ export const historyActions = ({ obj, undo = null }: any) => {
                 if (!template?.items?.length) return
 
                 console.log("TEMPLATE", template)
-
                 console.log(slides)
 
                 showsCache.update((a) => {
                     Object.entries(slides).forEach(([id, slide]: any) => {
                         if ((slideId && slideId !== id) || !slide) return
+
+                        // roll items around
+                        if (createItems) slide.items = [...slide.items.slice(1), slide.items[0]]
+                        // let addedItems = 0
 
                         let itemTypeIndex: any = {}
                         template.items.forEach((item: any) => {
@@ -724,19 +738,24 @@ export const historyActions = ({ obj, undo = null }: any) => {
                                 // remove text from template & add to slide
                                 if (item.lines) item.lines = item.lines.map((line) => ({ align: line.align, text: [{ style: line.text?.[0]?.style, value: "" }] }))
                                 slide.items.push(item)
+                                // slide.items = [item, ...slide.items]
+                                // addedItems++
 
                                 return
                             }
+
+                            // itemIndex += addedItems
 
                             if (type !== "text") {
                                 slide.items[itemIndex] = item
                                 return
                             }
 
-                            if (item.auto !== undefined) slide.items[itemIndex].auto = item.auto
-                            if (item.specialStyle !== undefined) slide.items[itemIndex].specialStyle = item.specialStyle
-                            if (item.scrolling !== undefined) slide.items[itemIndex].scrolling = item.scrolling
-                            if (item.bindings?.length) slide.items[itemIndex].bindings = item.bindings
+                            slide.items[itemIndex].auto = item.auto || false
+                            slide.items[itemIndex].actions = item.actions || {}
+                            slide.items[itemIndex].specialStyle = item.specialStyle || {}
+                            slide.items[itemIndex].scrolling = item.scrolling || {}
+                            slide.items[itemIndex].bindings = item.bindings || []
                             slide.items[itemIndex].style = item.style || ""
                             slide.items[itemIndex].align = item.align || ""
                             slide.items[itemIndex].lines?.forEach((line: any, j: number) => {

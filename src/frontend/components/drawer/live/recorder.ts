@@ -46,6 +46,7 @@ async function handleStop() {
     currentRecordingStream.set(null)
     activeRecording.set(null)
     recordedChunks = []
+    mediaRecorder = null
 }
 
 function formatTime() {

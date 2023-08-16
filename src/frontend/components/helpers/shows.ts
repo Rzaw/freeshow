@@ -1,6 +1,6 @@
 import { get } from "svelte/store"
 import { uid } from "uid"
-import { activeShow, shows as allShows, showsCache } from "../../stores"
+import { activeShow, shows as allShows, driveData, showsCache } from "../../stores"
 import { addToPos } from "./mover"
 import { clone } from "./array"
 // import { loadShows } from "./setShow"
@@ -253,7 +253,7 @@ export function _show(id: any = "active") {
                                     if (!lines?.length) lines = Object.keys(a[id].slides[slideId].items[index].lines)
                                     lines.forEach((line, lineIndex) => {
                                         if (key) {
-                                            if (a[id].slides[slideId].items[index].lines[line]) {
+                                            if (a[id].slides[slideId].items[index].lines?.[line]) {
                                                 // console.log(a[id].slides[slideId].items[index].lines[line], key, values, i)
                                                 // console.log(lines, line, key, a[id].slides[slideId].items[index].lines[line][key], i, lineIndex, values, values[i]?.[lineIndex])
                                                 // console.log(a[id].slides[slideId].items[index].lines[line].text?.[0]?.style)
@@ -602,9 +602,16 @@ export function _show(id: any = "active") {
                 // return prev
             },
             /** Add new media */
-            add: (object: any) => {
-                let bgid: string = uid()
+            add: (object: any, bgid: string = "") => {
+                if (!bgid) bgid = uid()
                 showsCache.update((a: any) => {
+                    let cloudId = get(driveData).mediaId
+                    if (cloudId && cloudId !== "default") {
+                        object.cloud = a[id].media[bgid]?.cloud || {}
+                        if (!object.cloud[cloudId]) object.cloud[cloudId] = {}
+                        object.cloud[cloudId] = object.path
+                    }
+
                     a[id].media[bgid] = object
 
                     a[id].timestamps.modified = new Date().getTime()

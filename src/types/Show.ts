@@ -54,6 +54,7 @@ export interface ShowList extends Show {
 }
 
 export interface Slide {
+    id?: string // used for reference, but might not be removed
     group: null | string
     color: null | string
     globalGroup?: string
@@ -72,6 +73,7 @@ export interface Item {
     lines?: Line[]
     list?: List
     auto?: boolean
+    autoFontSize?: number
     style: string
     align?: string
     specialStyle?: any // line gap && line background
@@ -88,7 +90,10 @@ export interface Item {
     fit?: string
     filter?: string
     flipped?: boolean
+    variable?: any
+    web?: any
     bindings?: string[] // bind item to stage or an output
+    actions?: any // showTime | hideTime
     chords?: boolean // stage
     scrolling?: Scrolling
     visualizer?: any
@@ -212,6 +217,7 @@ export interface Media {
     muted?: boolean
     loop?: boolean
     filters?: string
+    cloud?: { [key: string]: string }
 }
 
 export interface Midi {
@@ -247,6 +253,7 @@ export interface Overlay {
     category: null | string
     items: Item[]
     locked?: boolean
+    placeUnderSlide?: boolean
 }
 
 export interface Templates {
@@ -294,7 +301,7 @@ export interface OutTransition {
 // types
 
 export type ID = string
-export type ItemType = "text" | "list" | "media" | "camera" | "timer" | "clock" | "events" | "mirror" | "icon" | "visualizer" // "shape" | "video" | "media" | "camera"
+export type ItemType = "text" | "list" | "media" | "camera" | "timer" | "clock" | "events" | "variable" | "web" | "mirror" | "icon" | "visualizer" // "shape" | "video" | "media" | "camera"
 export type ShowType = "show" | "image" | "video" | "audio" | "player" | "section" // "private"
-export type TransitionType = "none" | "blur" | "fade" | "fly" | "scale" | "slide" | "spin"
+export type TransitionType = "none" | "blur" | "fade" | "crossfade" | "fly" | "scale" | "slide" | "spin"
 export type MediaType = "media" | "video" | "image" | "screen" | "camera" | "player" | "audio"

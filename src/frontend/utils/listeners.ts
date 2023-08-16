@@ -26,6 +26,7 @@ import {
     templates,
     timers,
     transitionData,
+    variables,
     volume,
 } from "../stores"
 import { driveConnect } from "./drive"
@@ -56,7 +57,8 @@ export function listenForUpdates() {
             })
         )
         // TODO: this, timedout +++
-        sendData(REMOTE, { channel: "OUT" }, true)
+        // this is just for updating output slide pos I guess
+        sendData(REMOTE, { channel: "OUT" })
 
         // cache shows data for faster show loading (if it's less than 100)
         if (Object.keys(data).length < 100) updateCachedShows(data)
@@ -87,6 +89,8 @@ export function listenForUpdates() {
 
     outputs.subscribe((data) => {
         send(OUTPUT, ["OUTPUTS"], data)
+        // used for stage mirror data
+        send(OUTPUT, ["ALL_OUTPUTS"], data)
         sendData(REMOTE, { channel: "OUT" })
     })
     styles.subscribe((data) => {
@@ -123,10 +127,14 @@ export function listenForUpdates() {
     timers.subscribe((data) => {
         send(OUTPUT, ["TIMERS"], data)
     })
+    variables.subscribe((data) => {
+        send(OUTPUT, ["VARIABLES"], data)
+    })
 
     volume.subscribe((data) => {
         send(OUTPUT, ["VOLUME"], data)
     })
+    // WIP send gain!!
 
     projects.subscribe(() => {
         sendData(REMOTE, { channel: "PROJECTS" }, true)

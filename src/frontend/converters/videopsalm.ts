@@ -95,7 +95,7 @@ export function convertVideopsalm(data: any) {
             content = content.replaceAll("\t", "").replaceAll("\v", "").replaceAll("\r", "").replaceAll(',<br>"', ',"').replaceAll("﻿", "") // remove this invisible character
 
             try {
-                content = JSON.parse(content || {}) as VideoPsalm
+                content = JSON.parse(content || "{}") as VideoPsalm
             } catch (e: any) {
                 console.error(e)
                 let pos = Number(e.toString().replace(/\D+/g, "") || 100)
@@ -124,7 +124,8 @@ export function convertVideopsalm(data: any) {
 
             let layoutID = uid()
             let show = new ShowObj(false, "videopsalm", layoutID)
-            show.name = checkName(song.Text || get(dictionary).main?.unnamed || "Unnamed") || ""
+            let showId = song.Guid || uid()
+            show.name = checkName(song.Text || get(dictionary).main?.unnamed || "Unnamed", showId) || ""
             show.meta = {
                 title: show.name,
                 artist: album || "",
@@ -138,7 +139,7 @@ export function convertVideopsalm(data: any) {
             show.slides = slides
             show.layouts = { [layoutID]: { name: get(dictionary).example?.default || "", notes: notes || "", slides: layout } }
 
-            tempShows.push({ id: song.Guid || uid(), show })
+            tempShows.push({ id: showId, show })
 
             if (i < content.Songs.length - 1) {
                 i++
@@ -189,19 +190,44 @@ function createSlides({ Verses, Sequence }: Song) {
     let sequence: string[] = Sequence?.split(" ") || []
     let sequences: any = {}
 
-    // console.log(Verses, Verses[0].Text)
     Verses.forEach((verse, i) => {
         if (verse.Text) {
             let id: string = uid()
             if (sequence[i]) sequences[sequence[i]] = id
             layout.push({ id })
-            let items = [
-                {
-                    style: "left:50px;top:120px;width:1820px;height:840px;",
-                    lines: verse.Text.split("<br>").map((a: any) => ({ align: "", text: [{ style: "", value: a }] })),
-                },
-            ]
-            // TODO: chords \[.*?\]
+
+            let lines: any[] = []
+            verse.Text.split("<br>").forEach((text) => {
+                let line: any = { align: "", text: [] }
+
+                let chords: any[] = []
+                let newText: string = ""
+                text.split("]").forEach((t) => {
+                    let chordStart = t.indexOf("[")
+                    if (chordStart < 0) chordStart = t.length
+
+                    let text = t.slice(0, chordStart)
+                    newText += text
+
+                    let chord = t.slice(chordStart + 1)
+                    // only: [Gm], not: [info] [x4]
+                    if (!chord || chord.length > 3 || chord.includes("x")) newText += `[${chord}]`
+                    else {
+                        let id = uid(5)
+                        chords.push({ id, pos: newText.length, key: chord })
+                    }
+                })
+
+                if (!newText.length) return
+
+                if (chords.length) line.chords = chords
+
+                line.text = [{ style: "", value: newText }]
+                lines.push(line)
+            })
+
+            let items = [{ style: "left:50px;top:120px;width:1820px;height:840px;", lines }]
+
             slides[id] = {
                 group: "",
                 color: null,

@@ -59,7 +59,7 @@
 
     // -----
 
-    const setItemStyle = ["list", "timer", "clock", "icon", "events", "camera"]
+    const setItemStyle = ["list", "timer", "clock", "icon", "events", "camera", "variable"]
 
     $: box = boxes[id]
 
@@ -70,7 +70,7 @@
 
     $: if (box?.edit?.CSS && style) box.edit.CSS[0].value = style
 
-    $: lineAlignStyle = item?.lines ? getStyles(getLastLineAlign(item, selection)) : {}
+    $: lineAlignStyle = item?.lines ? getStyles(getLastLineAlign(item, selection)) : getStyles(item?.align)
     $: alignStyle = item?.align ? getStyles(item.align) : {}
 
     // WIP shouldn't have fixed values
@@ -86,6 +86,8 @@
     $: if (id === "media" && box) box.edit.default[0].value = item?.src || ""
     $: if (id === "list" && box) box.edit.default[0].value = item?.list?.items || []
     $: if (id === "timer" && box) box.edit.default[2].hidden = item?.timer?.viewType !== "circle"
+    $: if (id === "variable" && box) box.edit.default[0].value = item?.variable?.id
+    $: if (id === "web" && box) box.edit.default[0].value = item?.web?.src || ""
     $: if (id === "events" && box) {
         box.edit.default[4].hidden = !item?.events?.enableStartDate
         box.edit.default[5].hidden = !item?.events?.enableStartDate
@@ -119,14 +121,14 @@
     function setValue(input: any, allItems: any[]) {
         let value: any = input.value
         if (input.id === "filter") value = addFilterString(item?.filter || "", [input.key, value])
+        else if (input.key === "text-align") value = `text-align: ${value};`
         else if (input.key) value = { ...((item as any)?.[input.key] || {}), [input.key]: value }
-        console.log(input, value)
 
-        if (input.id === "auto") {
-            setTimeout(() => {
-                refreshEditSlide.set(true)
-            }, 100)
-        }
+        // if (input.id === "auto") {
+        //     setTimeout(() => {
+        //         refreshEditSlide.set(true)
+        //     }, 100)
+        // }
 
         // set nested value
         if (input.id.includes(".")) {
@@ -207,6 +209,7 @@
 
     function updateValue(e: any) {
         let input = e.detail
+        console.log("BOX INPUT:", input)
 
         // console.log("original", getOriginalValue(box!.edit, input.key))
         // console.log(input)
@@ -296,6 +299,14 @@
                 }
             }
             // newData.push(addStyle(selected, allSlideItems[itemIndex], [input.key, input.value]).lines!.map((a) => a.text))
+        }
+
+        // align other items (VARIABLE)
+        if (aligns && item?.type && item.type !== "text") {
+            input.id = "align"
+            setValue(input, allItems)
+
+            return
         }
 
         // TODO: remove unused (if default)

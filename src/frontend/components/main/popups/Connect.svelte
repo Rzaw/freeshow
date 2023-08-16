@@ -19,9 +19,10 @@
         remote: 5510,
         stage: 5511,
         controller: 5512,
+        output_stream: 5513,
     }
 
-    $: url = ip + ":" + ($ports[id] || defaultPorts[id])
+    $: url = "http://" + ip + ":" + ($ports[id] || defaultPorts[id])
     $: if (url) generateQR(url)
 
     function mousedown(e: any) {
@@ -41,7 +42,7 @@
 
 <div on:mousedown={mousedown}>
     <p><T id="settings.connect" />:</p>
-    <Link url={"http://" + url}>
+    <Link {url}>
         {url}
         <Icon id="launch" white />
     </Link>
