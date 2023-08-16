@@ -39,7 +39,6 @@ export function convertOpenSong(data: any) {
     setTimeout(() => {
         data?.forEach(({ content }: any) => {
             let song = XMLtoObject(content)
-            console.log(song)
 
             let layoutID = uid()
             let show = new ShowObj(false, "opensong", layoutID)
@@ -68,7 +67,7 @@ function createSlides({ lyrics }: Song) {
     let slides: any = {}
     let layout: any[] = []
     lyrics.forEach((slide) => {
-        let lines = slide.trim().split("\n").map((a: string) => a.trim());
+        let lines = slide.trim().split("\n");
         let group = lines.splice(0, 1)[0].trim()
         if (group !== null)
             group = group.toUpperCase()
@@ -82,8 +81,8 @@ function createSlides({ lyrics }: Song) {
             layout.push({ id })
 
             // Split each line of text by "||" and map to new lines
-            let textLines = text.flatMap((a: any) => a.trim().split("||")).map((a: any) => ({ align: "", text: [{ style: "", value: a.trim() }] }));
-
+            let textLines = text.flatMap((a: any) => a.split("||")).map((a: any) => ({ align: "", text: [{ style: "", value: a.trim() }] }));
+            
             let items = [
                 {
                     style: "left:50px;top:120px;width:1820px;height:840px;",
@@ -123,7 +122,7 @@ function XMLtoObject(xml: string) {
         // user1: song.getElementsByTagName("user1")[0]?.textContent!,
         // user2: song.getElementsByTagName("user2")[0]?.textContent!,
         // user3: song.getElementsByTagName("user3")[0]?.textContent!,
-        lyrics: song.getElementsByTagName("lyrics")[0]?.textContent!.split("\n\n"),
+        lyrics: song.getElementsByTagName("lyrics")[0]?.textContent!.split(/\n\s\n|\n\n/),
         hymn_number: song.getElementsByTagName("hymn_number")[0]?.textContent!,
         key: song.getElementsByTagName("key")[0]?.textContent!,
         // aka: song.getElementsByTagName("aka")[0]?.textContent!,
