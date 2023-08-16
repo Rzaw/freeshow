@@ -68,21 +68,30 @@ function createSlides({ lyrics }: Song) {
     let slides: any = {}
     let layout: any[] = []
     lyrics.forEach((slide) => {
-        let lines = slide.split("\n")
-        let group = lines.splice(0, 1)[0]
-        let chords = lines.filter((_v: string, i: number) => !(i % 2))
-        let text = lines.filter((_v: string, i: number) => i % 2)
+        let lines = slide.trim().split("\n").map((a: string) => a.trim());
+        let group = lines.splice(0, 1)[0].trim()
+        if (group !== null)
+            group = group.toUpperCase()
+        else 
+            group = 'V1'
+        // let chords = lines.filter((_v: string, i: number) => !(i % 2))
+        // let text = lines.filter((_v: string, i: number) => i % 2)
+        let text = lines;
         if (text) {
             let id: string = uid()
             layout.push({ id })
+
+            // Split each line of text by "||" and map to new lines
+            let textLines = text.flatMap((a: any) => a.trim().split("||")).map((a: any) => ({ align: "", text: [{ style: "", value: a.trim() }] }));
+
             let items = [
                 {
                     style: "left:50px;top:120px;width:1820px;height:840px;",
-                    lines: text.map((a: any) => ({ align: "", text: [{ style: "", value: a }] })),
+                    lines: textLines,
                 },
             ]
             // TODO: chords
-            console.log(chords)
+            // console.log(chords)
             slides[id] = {
                 group: "",
                 color: null,
