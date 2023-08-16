@@ -14,14 +14,15 @@
 
     // NDI
 
-    const receiveNDI: any = {
-        DEVICES: (msg) => {
-            console.log(msg)
-        },
-    }
+    // TODO: NDI inputs
+    // const receiveNDI: any = {
+    //     RECEIVE_LIST: (msg) => {
+    //         console.log(msg) // {"embedded":{}}
+    //     },
+    // }
 
-    send(NDI, ["DEVICES"])
-    receive(NDI, receiveNDI)
+    // send(NDI, ["RECEIVE_LIST"])
+    // receive(NDI, receiveNDI)
 </script>
 
 {#each screens as screen}
